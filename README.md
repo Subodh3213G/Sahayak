@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+# Sahayak AI Agent - Hackathon Demo
 
-First, run the development server:
+## Overview
+Sahayak is a Digital Inclusion tool for Senior Citizens, allowing them to make UPI payments using voice commands in their native language (Hindi/Hinglish).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
+- **Voice Input**: Large, accessible microphone button using Web Speech API.
+- **AI Processing**: Simulates intent extraction (Name, Amount) from voice.
+- **Voice Verification**: Reads out the payment details for confirmation (Text-to-Speech).
+- **One-Tap Payment**: Generates a UPI Deep Link to open PhonePe/GPay directly.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Technology Stack
+- **Frontend**: Next.js 15, Tailwind CSS
+- **Backend Logic**: Next.js API Routes (Simulated AI/Regex for demo reliability)
+- **Deployment**: Localhost or Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📱 Mobile Testing (Crucial for Microphone Access)
+**Important:** Modern browsers block microphone access on "insecure" HTTP origins (like `http://192.168.x.x:3000`). You **MUST** use HTTPS to test on your phone.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### How to use on Phone immediately:
+1. Start your local server:
+   ```bash
+   npm run dev
+   ```
+2. In a **new terminal**, run `localtunnel` to create a public HTTPS link:
+   ```bash
+   npx localtunnel --port 3000
+   ```
+3. Copy the URL it gives you (e.g., `https://floppy-donkey-42.loca.lt`).
+4. Open that URL on your smartphone.
+5. **Bypass the Warning**: Localtunnel shows a "friendly warning" page. You need to enter the tunnel password (which is your external IP) OR just click "Click to Continue" / "Bypass" if available.
+   - *Better Option:* Use **ngrok** if you have it installed: `ngrok http 3000`.
 
-## Learn More
+## Hackathon Notes
+- The "AI Brain" is currently mocked using Regex in `app/api/process/route.ts` to ensure it works offline/without API keys during the demo.
+- You can say: "Raju ko 500 rupaye bhejo", "Pay 500 to Raju", etc.
+- The UPI link generated uses `upi://pay` scheme. On a desktop, this might do nothing or try to open an app. On a mobile device, it will prompt to open a UPI app.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+- `app/page.tsx`: Main UI and Speech Logic.
+- `app/api/process/route.ts`: Backend logic replacing n8n for the self-contained demo.

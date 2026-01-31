@@ -1,0 +1,47 @@
+
+> sahayak-web@0.1.0 build
+> next build
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of D:\Programs\Gits\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * D:\Programs\Gits\AI Innovation\sahayak-web\package-lock.json
+
+▲ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+Error: Cannot apply unknown utility class `border-border`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    [2m[at onInvalidCandidate (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:21:1314)][0m
+    [2m[at Te (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:16:36652)][0m
+    [2m[at D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:21:355][0m
+    [2m[at Rr (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:3:1718)][0m
+    [2m[at _ (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:3:1377)][0m
+    [2m[at $e (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:21:172)][0m
+    [2m[at un (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:38:294)][0m
+    [2m[at process.processTicksAndRejections (node:internal/process/task_queues:105:5)][0m
+    [2m[at async cn (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\tailwindcss\dist\lib.js:38:631)][0m
+    [2m[at async Xr (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\@tailwindcss\node\dist\index.js:10:3417)][0m
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./AI Innovation/sahayak-web/app/globals.css
+Error evaluating Node.js code
+CssSyntaxError: tailwindcss: D:\Programs\Gits\AI Innovation\sahayak-web\app\globals.css:1:1: Cannot apply unknown utility class `border-border`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    at Input.error (AI Innovation/sahayak-web/node_modules/postcss/lib/input.js:135:16) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\28078_85251f7b._.js:4651:22]
+    at Root.error (AI Innovation/sahayak-web/node_modules/postcss/lib/node.js:146:32) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\28078_85251f7b._.js:928:38]
+    [at Object.Once (D:\Programs\Gits\AI Innovation\sahayak-web\node_modules\@tailwindcss\postcss\dist\index.js:10:6911)]
+    [at process.processTicksAndRejections (node:internal/process/task_queues:105:5)]
+    at async LazyResult.runAsync (AI Innovation/sahayak-web/node_modules/postcss/lib/lazy-result.js:293:11) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\28078_85251f7b._.js:6206:21]
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\[root-of-the-server]__1ddf40df._.js:146:36]
+    at async run (turbopack:///[turbopack-node]/ipc/evaluate.ts:92:23) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\[root-of-the-server]__fd869307._.js:443:31]
+
+Import trace:
+  Client Component Browser:
+    ./AI Innovation/sahayak-web/app/globals.css [Client Component Browser]
+    ./AI Innovation/sahayak-web/app/layout.tsx [Server Component]
+
+
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\[root-of-the-server]__1ddf40df._.js:146:36])
+    at async run (turbopack:///[turbopack-node]/ipc/evaluate.ts:92:23) [D:\Programs\Gits\AI Innovation\sahayak-web\.next\build\chunks\[root-of-the-server]__fd869307._.js:443:31])
