@@ -52,87 +52,107 @@ export async function POST(request: Request) {
 
     console.log("🔍 Checking in", allContacts.length, "total contacts");
 
-    // Check for contact names - improved matching
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("🔍 SEARCHING IN CONTACTS");
+    console.log("Available contacts:", allContacts.length);
+    allContacts.forEach((c, i) => {
+      console.log(`  ${i + 1}. ${c.name} (${c.tel}${c.upiId ? ', UPI: ' + c.upiId : ''})`);
+    });
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    // Check for contact names - improved matching with extensive debugging
     for (const contact of allContacts) {
-      const contactName = contact.name.toLowerCase();
-      const contactWords = contactName.split(/\s+/);
+      const contactName = contact.name.toLowerCase().trim();
+      const contactWords = contactName.split(/\s+/).filter(w => w.length >= 2);
+      
+      console.log(`\n🔎 Checking contact: "${contact.name}"`);
+      console.log(`   Words in contact name: [${contactWords.join(', ')}]`);
       
       // Multi-strategy matching for better accuracy
       let matched = false;
+      let matchReason = '';
       
-      // Strategy 1: Exact word match
+      // Strategy 1: Check if any word from contact name is in the spoken text
       for (const word of contactWords) {
-        if (word.length >= 3 && lower.includes(word)) {
+        if (word.length >= 2 && lower.includes(word)) {
           matched = true;
-          console.log(`   ✅ MATCHED (word): "${word}" in "${contactName}"`);
+          matchReason = `word "${word}" found in spoken text`;
+          console.log(`   ✅ MATCH! Found word "${word}" in "${lower}"`);
           break;
         }
       }
       
-      // Strategy 2: Full name match
-      if (!matched && (lower.includes(contactName) || normalized.includes(contactName.replace(/\s+/g, '')))) {
+      // Strategy 2: Check if spoken text contains the full contact name
+      if (!matched && lower.includes(contactName)) {
         matched = true;
-        console.log(`   ✅ MATCHED (full): "${contactName}"`);
+        matchReason = `full name "${contactName}" found in spoken text`;
+        console.log(`   ✅ MATCH! Full name found in "${lower}"`);
+      }
+      
+      // Strategy 3: Check normalized (no spaces) version
+      if (!matched) {
+        const normalizedContact = contactName.replace(/\s+/g, '');
+        if (normalized.includes(normalizedContact) && normalizedContact.length >= 3) {
+          matched = true;
+          matchReason = `normalized name "${normalizedContact}" found`;
+          console.log(`   ✅ MATCH! Normalized match`);
+        }
+      }
+      
+      if (!matched) {
+        console.log(`   ❌ No match for "${contact.name}"`);
       }
       
       if (matched) {
-        console.log(`   → Contact: ${contact.name}, Tel: ${contact.tel}, UPI: ${contact.upiId || 'none'}`);
-        
-        // Check if there's a number (could be payment)
-        const hasNumber = /\d+/.test(lower);
-        
-        // Check for call keywords
-        const callKeywords = [
-          "call", "kol", "karo", "lagao", "phone", "fone", "baat", 
-          "कॉल", "लगाओ", "फोन", "बात", "करो"
-        ];
-        const hasCallKeyword = callKeywords.some(kw => lower.includes(kw));
+        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("✅ CONTACT MATCHED!");
+        console.log(`   Contact: ${contact.name}`);
+        console.log(`   Tel: ${contact.tel}`);
+        console.log(`   UPI: ${contact.upiId || 'none'}`);
+        console.log(`   Match reason: ${matchReason}`);
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━");
         
         // Extract amount if present for potential payment
         const amountMatch = lower.match(/(\d+)/);
         const amount = amountMatch ? amountMatch[0] : null;
         
-        // Determine intent: CALL if no number OR has call keyword
-        if (!hasNumber || hasCallKeyword) {
-          console.log("   📞 Treating as CALL");
-          
-          // Create deep link that opens phone/contacts app and searches for the name
-          // This will open the Android phone app with a search for the contact name
-          const phoneSearchIntent = `intent:#Intent;action=android.intent.action.SEARCH;component=com.android.contacts/.activities.PeopleActivity;S.query=${encodeURIComponent(contact.name)};end`;
-          
-          // Alternative: Direct dial link as fallback
-          const telLink = `tel:${contact.tel}`;
+        // Check for call keywords
+        const callKeywords = [
+          "call", "kol", "karo", "lagao", "phone", "fone", "baat", 
+          "कॉल", "लगाओ", "फोन", "बात", "करो", "kare"
+        ];
+        const hasCallKeyword = callKeywords.some(kw => lower.includes(kw));
+        
+        console.log(`   Has amount: ${amount || 'no'}`);
+        console.log(`   Has call keyword: ${hasCallKeyword}`);
+        
+        // Determine intent: CALL if no amount OR has call keyword
+        if (!amount || hasCallKeyword) {
+          console.log("\n📞 DECISION: CALL");
           
           return NextResponse.json({
             intent: 'call',
             details: {
               recipient: contact.name.charAt(0).toUpperCase() + contact.name.slice(1),
-              number: contact.tel,
-              deepLink: phoneSearchIntent, // Primary: Opens contacts with search
-              telLink: telLink // Fallback: Direct dial
+              number: contact.tel
             },
             originalText: text
           });
         }
         
-        // If has number but no call keyword, it's likely a payment
+        // If has amount and no call keyword, it's a payment
         if (amount && !hasCallKeyword) {
-          console.log(`   💰 Treating as PAYMENT - Amount: ${amount}`);
+          console.log(`\n💰 DECISION: PAYMENT - Amount: ${amount}`);
           
           const recipientName = contact.name.charAt(0).toUpperCase() + contact.name.slice(1);
           
-          // Create deep links for different UPI apps
-          // PhonePe deep link with search
-          const phonepeLink = `phonepe://pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          // If we have UPI ID, use it; otherwise use phone number as UPI ID
+          const upiId = contact.upiId || `${contact.tel}@paytm`;
           
-          // GPay deep link with search
-          const gpayLink = `gpay://upi/pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          // Create UPI deep link
+          const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
           
-          // Paytm deep link
-          const paytmLink = `paytmmp://pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
-          
-          // Standard UPI link (fallback)
-          const upiLink = `upi://pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          console.log(`   UPI Link: ${upiLink}`);
           
           return NextResponse.json({
             intent: 'pay',
@@ -140,13 +160,10 @@ export async function POST(request: Request) {
               amount,
               recipient: recipientName,
               upiId: contact.upiId,
-              phonepeLink,
-              gpayLink,
-              paytmLink,
-              upiLink // Generic fallback
+              upiLink
             },
             warning: !contact.upiId 
-              ? `${recipientName} ka UPI ID nahi mila. App khulega, aap select kar sakte hain.`
+              ? `${recipientName} ka UPI ID nahi mila. Phone number use ho raha hai. UPI app mein correct receiver select karein.`
               : undefined,
             originalText: text
           });

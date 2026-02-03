@@ -252,37 +252,16 @@ export default function Home() {
     if (!result) return;
 
     if (result.intent === 'pay') {
-      // Try UPI app deep links in order: PhonePe > GPay > Paytm > Generic UPI
-      // The first installed app will open
-      const links = [
-        result.details.phonepeLink,
-        result.details.gpayLink,
-        result.details.paytmLink,
-        result.details.upiLink
-      ].filter(Boolean); // Remove undefined values
-      
-      if (links.length > 0) {
-        console.log("🔗 Trying UPI deep links:", links);
-        // Try the first available link
-        window.location.href = links[0]!;
+      // Use the UPI link we created
+      if (result.details.upiLink) {
+        console.log("� Opening UPI link:", result.details.upiLink);
+        window.location.href = result.details.upiLink;
       }
     } else if (result.intent === 'call') {
-      // Try contacts search deep link first, then fallback to tel:
-      if (result.details.deepLink) {
-        console.log("📞 Trying contacts search intent:", result.details.deepLink);
-        window.location.href = result.details.deepLink;
-        
-        // Set a timeout to try tel: link if intent doesn't work
-        setTimeout(() => {
-          if (result.details.telLink) {
-            console.log("📞 Fallback to tel link:", result.details.telLink);
-            window.location.href = result.details.telLink;
-          }
-        }, 1000);
-      } else if (result.details.telLink || result.details.number) {
-        // Direct tel: link fallback
-        const telLink = result.details.telLink || `tel:${result.details.number}`;
-        console.log("📞 Using direct tel link:", telLink);
+      // Use direct tel: link
+      if (result.details.number) {
+        const telLink = `tel:${result.details.number}`;
+        console.log("📞 Opening tel link:", telLink);
         window.location.href = telLink;
       }
     }
@@ -298,20 +277,25 @@ export default function Home() {
   };
 
   const handleSOS = () => {
-    const message = "EMERGENCY! I need help.";
+    const emergencyContact = "919693304474"; // Emergency WhatsApp number with country code
+    const message = "🚨 EMERGENCY! I need help immediately!";
     
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const link = `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`;
-          window.location.href = `https://wa.me/?text=${encodeURIComponent(message + " Location: " + link)}`;
+          const fullMessage = `${message}\n\n📍 My Location: ${link}`;
+          window.location.href = `https://wa.me/${emergencyContact}?text=${encodeURIComponent(fullMessage)}`;
         },
         () => {
-          window.location.href = `https://wa.me/?text=${encodeURIComponent(message)}`;
-        }
+          // If location access denied, send message without location
+          window.location.href = `https://wa.me/${emergencyContact}?text=${encodeURIComponent(message + "\n\n⚠️ Could not get location.")}`;
+        },
+        { timeout: 5000 } // 5 second timeout for getting location
       );
     } else {
-      window.location.href = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      // If geolocation not supported
+      window.location.href = `https://wa.me/${emergencyContact}?text=${encodeURIComponent(message)}`;
     }
   };
 
