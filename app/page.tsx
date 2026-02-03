@@ -20,6 +20,8 @@ interface Result {
     recipient?: string;
     number?: string;
     upiLink?: string;
+    androidDialerLink?: string; // Android intent link for better contact calling
+    upiId?: string; // UPI ID for verification
   };
   warning?: string;
   originalText: string;
@@ -28,6 +30,7 @@ interface Result {
 interface Contact {
   name: string;
   tel: string;
+  upiId?: string; // UPI VPA from email field
 }
 
 export default function Home() {
@@ -109,7 +112,7 @@ export default function Home() {
     }
 
     try {
-      const props = ['name', 'tel'];
+      const props = ['name', 'tel', 'email']; // Added email for UPI IDs
       // @ts-ignore - Contact Picker API
       const selectedContacts = await navigator.contacts.select(props, { multiple: true });
       
@@ -117,11 +120,13 @@ export default function Home() {
         .filter((c: any) => c.name && c.tel && c.tel.length > 0)
         .map((c: any) => ({
           name: c.name[0].toLowerCase(),
-          tel: c.tel[0]
+          tel: c.tel[0],
+          upiId: c.email && c.email.length > 0 ? c.email[0] : undefined // Store UPI ID from email
         }));
       
       setContacts(formattedContacts);
       console.log("📇 Loaded contacts:", formattedContacts.length);
+      console.log("📇 Contacts with UPI IDs:", formattedContacts.filter(c => c.upiId).length);
       alert(`Loaded ${formattedContacts.length} contacts successfully!`);
     } catch (err) {
       console.error("Failed to load contacts:", err);
@@ -174,7 +179,10 @@ export default function Home() {
         
         // Speak verification
         if (data.intent === 'pay') {
-          const msg = `I am ready to pay ${data.details.amount} rupees to ${data.details.recipient}. Is this correct?`;
+          let msg = `I am ready to pay ${data.details.amount} rupees to ${data.details.recipient}. Is this correct?`;
+          if (data.warning) {
+            msg += ` Warning: ${data.warning}`;
+          }
           console.log("💰 PAYMENT verification:", msg);
           speak(msg);
         } else if (data.intent === 'call') {
@@ -229,8 +237,14 @@ export default function Home() {
 
     if (result.intent === 'pay' && result.details.upiLink) {
       window.location.href = result.details.upiLink;
-    } else if (result.intent === 'call' && result.details.number) {
-      window.location.href = `tel:${result.details.number}`;
+    } else if (result.intent === 'call') {
+      // Prefer Android dialer intent link for better UX (opens contacts app with search)
+      if (result.details.androidDialerLink) {
+        window.location.href = result.details.androidDialerLink;
+      } else if (result.details.number) {
+        // Fallback to direct tel: link
+        window.location.href = `tel:${result.details.number}`;
+      }
     }
     
     setStatus('completed');
@@ -354,6 +368,11 @@ export default function Home() {
                     <div className="text-2xl text-gray-600">
                       को <span className="font-bold text-black">{result.details.recipient}</span>
                     </div>
+                    {result.details.upiId && (
+                      <div className="text-lg text-gray-500 bg-gray-50 p-3 rounded-lg">
+                        UPI: <span className="font-mono font-semibold">{result.details.upiId}</span>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -363,6 +382,13 @@ export default function Home() {
                     <div className="text-3xl font-bold text-gray-900">{result.details.recipient} को Call करें?</div>
                     <div className="text-xl text-gray-500">{result.details.number}</div>
                   </>
+                )}
+
+                {/* Warning message if present */}
+                {result.warning && (
+                  <div className="bg-orange-100 border-2 border-orange-300 text-orange-800 p-4 rounded-xl text-base">
+                    ⚠️ {result.warning}
+                  </div>
                 )}
 
                 <div className="space-y-3 pt-4">

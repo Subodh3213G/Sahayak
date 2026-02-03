@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 interface Contact {
   name: string;
   tel: string;
+  upiId?: string;
 }
 
 // Fallback contacts (if device contacts not available)
@@ -65,11 +66,17 @@ export async function POST(request: Request) {
         if (!hasNumber) {
           // No number = definitely a call
           console.log("   📞 No number, treating as CALL");
+          
+          // Create Android deep link to open dialer/contacts with search
+          // This approach opens the contacts app and searches for the name
+          const androidDialerLink = `intent://contacts/#Intent;scheme=content;action=android.intent.action.VIEW;S.query=${encodeURIComponent(contact.name)};end`;
+          
           return NextResponse.json({
             intent: 'call',
             details: {
               recipient: contact.name.charAt(0).toUpperCase() + contact.name.slice(1),
-              number: contact.tel
+              number: contact.tel,
+              androidDialerLink // Add Android intent link for better UX
             },
             originalText: text
           });
@@ -83,11 +90,16 @@ export async function POST(request: Request) {
           
           if (hasCallKeyword) {
             console.log("   📞 Has call keyword, treating as CALL");
+            
+            // Create Android deep link to open dialer/contacts with search
+            const androidDialerLink = `intent://contacts/#Intent;scheme=content;action=android.intent.action.VIEW;S.query=${encodeURIComponent(contact.name)};end`;
+            
             return NextResponse.json({
               intent: 'call',
               details: {
                 recipient: contact.name.charAt(0).toUpperCase() + contact.name.slice(1),
-                number: contact.tel
+                number: contact.tel,
+                androidDialerLink
               },
               originalText: text
             });
@@ -113,16 +125,39 @@ export async function POST(request: Request) {
       
       console.log("✅ RECIPIENT:", name);
       
-      const recipientName = name.charAt(0).toUpperCase() + name.slice(1);
-      const upiLink = `upi://pay?pa=demo@upi&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+      // Search for the recipient in contacts to get their UPI ID
+      let upiId = "demo@upi"; // Default fallback
+      let matchedContact = null;
+      
+      for (const contact of allContacts) {
+        const contactName = contact.name.toLowerCase();
+        if (name.includes(contactName) || contactName.includes(name)) {
+          matchedContact = contact;
+          if (contact.upiId) {
+            upiId = contact.upiId;
+            console.log(`💳 Found UPI ID for ${contact.name}: ${upiId}`);
+          }
+          break;
+        }
+      }
+      
+      const recipientName = matchedContact 
+        ? matchedContact.name.charAt(0).toUpperCase() + matchedContact.name.slice(1)
+        : name.charAt(0).toUpperCase() + name.slice(1);
+      
+      const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
       
       return NextResponse.json({
         intent: 'pay',
         details: {
           amount,
           recipient: recipientName,
-          upiLink
+          upiLink,
+          upiId // Include UPI ID in response for verification
         },
+        warning: matchedContact && !matchedContact.upiId 
+          ? `${recipientName} ka UPI ID nahi mila. Demo UPI ID use ho raha hai.`
+          : undefined,
         originalText: text
       });
     }
