@@ -125,9 +125,19 @@ export default function Home() {
         }));
       
       setContacts(formattedContacts);
-      console.log("📇 Loaded contacts:", formattedContacts.length);
-      console.log("📇 Contacts with UPI IDs:", formattedContacts.filter(c => c.upiId).length);
-      alert(`Loaded ${formattedContacts.length} contacts successfully!`);
+      const withUpi = formattedContacts.filter(c => c.upiId).length;
+      
+      console.log("📇 ═══════════════════════════");
+      console.log("📇 CONTACTS LOADED");
+      console.log("📇 Total:", formattedContacts.length);
+      console.log("📇 With UPI IDs:", withUpi);
+      console.log("📇 Sample contacts:");
+      formattedContacts.slice(0, 5).forEach(c => {
+        console.log(`   - ${c.name}: ${c.tel}${c.upiId ? ' [UPI: ' + c.upiId + ']' : ' [No UPI]'}`);
+      });
+      console.log("📇 ═══════════════════════════");
+      
+      alert(`✅ Loaded ${formattedContacts.length} contacts!\n${withUpi} contacts have UPI IDs.`);
     } catch (err) {
       console.error("Failed to load contacts:", err);
       alert("Could not load contacts. Please try again or use fallback mode.");
@@ -237,14 +247,9 @@ export default function Home() {
 
     if (result.intent === 'pay' && result.details.upiLink) {
       window.location.href = result.details.upiLink;
-    } else if (result.intent === 'call') {
-      // Prefer Android dialer intent link for better UX (opens contacts app with search)
-      if (result.details.androidDialerLink) {
-        window.location.href = result.details.androidDialerLink;
-      } else if (result.details.number) {
-        // Fallback to direct tel: link
-        window.location.href = `tel:${result.details.number}`;
-      }
+    } else if (result.intent === 'call' && result.details.number) {
+      // Direct tel: link - works universally
+      window.location.href = `tel:${result.details.number}`;
     }
     
     setStatus('completed');

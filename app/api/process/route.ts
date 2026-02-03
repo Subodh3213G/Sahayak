@@ -52,59 +52,56 @@ export async function POST(request: Request) {
 
     console.log("🔍 Checking in", allContacts.length, "total contacts");
 
-    // Check for contact names
+    // Check for contact names - improved matching
     for (const contact of allContacts) {
       const contactName = contact.name.toLowerCase();
+      const contactWords = contactName.split(/\s+/);
       
-      // Fuzzy matching - check if spoken text contains contact name
-      if (lower.includes(contactName) || normalized.includes(contactName.replace(/\s+/g, ''))) {
-        console.log(`   ✅ MATCHED: "${contactName}" → ${contact.tel}`);
+      // Multi-strategy matching for better accuracy
+      let matched = false;
+      
+      // Strategy 1: Exact word match
+      for (const word of contactWords) {
+        if (word.length >= 3 && lower.includes(word)) {
+          matched = true;
+          console.log(`   ✅ MATCHED (word): "${word}" in "${contactName}"`);
+          break;
+        }
+      }
+      
+      // Strategy 2: Full name match
+      if (!matched && (lower.includes(contactName) || normalized.includes(contactName.replace(/\s+/g, '')))) {
+        matched = true;
+        console.log(`   ✅ MATCHED (full): "${contactName}"`);
+      }
+      
+      if (matched) {
+        console.log(`   → Contact: ${contact.name}, Tel: ${contact.tel}, UPI: ${contact.upiId || 'none'}`);
         
         // Check if there's a number (could be payment)
         const hasNumber = /\d+/.test(lower);
         
-        if (!hasNumber) {
-          // No number = definitely a call
-          console.log("   📞 No number, treating as CALL");
-          
-          // Create Android deep link to open dialer/contacts with search
-          // This approach opens the contacts app and searches for the name
-          const androidDialerLink = `intent://contacts/#Intent;scheme=content;action=android.intent.action.VIEW;S.query=${encodeURIComponent(contact.name)};end`;
+        // Check for call keywords
+        const callKeywords = [
+          "call", "kol", "karo", "lagao", "phone", "fone", "baat", 
+          "कॉल", "लगाओ", "फोन", "बात", "करो"
+        ];
+        const hasCallKeyword = callKeywords.some(kw => lower.includes(kw));
+        
+        // Determine intent: CALL if no number OR has call keyword
+        if (!hasNumber || hasCallKeyword) {
+          console.log("   📞 Treating as CALL");
           
           return NextResponse.json({
             intent: 'call',
             details: {
               recipient: contact.name.charAt(0).toUpperCase() + contact.name.slice(1),
-              number: contact.tel,
-              androidDialerLink // Add Android intent link for better UX
+              number: contact.tel
             },
             originalText: text
           });
-        } else {
-          // Has number - check for call keywords
-          const callKeywords = [
-            "call", "kol", "lagao", "phone", "fone", "baat", 
-            "कॉल", "लगाओ", "फोन", "बात"
-          ];
-          const hasCallKeyword = callKeywords.some(kw => lower.includes(kw));
-          
-          if (hasCallKeyword) {
-            console.log("   📞 Has call keyword, treating as CALL");
-            
-            // Create Android deep link to open dialer/contacts with search
-            const androidDialerLink = `intent://contacts/#Intent;scheme=content;action=android.intent.action.VIEW;S.query=${encodeURIComponent(contact.name)};end`;
-            
-            return NextResponse.json({
-              intent: 'call',
-              details: {
-                recipient: contact.name.charAt(0).toUpperCase() + contact.name.slice(1),
-                number: contact.tel,
-                androidDialerLink
-              },
-              originalText: text
-            });
-          }
         }
+        // Otherwise, continue to check if it's a payment (handled below)
       }
     }
 
@@ -117,25 +114,42 @@ export async function POST(request: Request) {
       // Extract recipient name
       let name = lower
         .replace(amount, " ")
-        .replace(/(pay|send|rupees|rupaye|rs|bhejo|to|ko|de|do|karo)/g, " ")
+        .replace(/(pay|send|rupees|rupaye|rs|bhejo|to|ko|de|do|karo|payment|paisa)/g, " ")
         .replace(/\s+/g, " ")
         .trim();
       
       if (!name || name.length < 2) name = "merchant";
       
-      console.log("✅ RECIPIENT:", name);
+      console.log("✅ EXTRACTED NAME:", name);
       
-      // Search for the recipient in contacts to get their UPI ID
-      let upiId = "demo@upi"; // Default fallback
+      // Search for the recipient in contacts to get their details
+      let upiId = null;
       let matchedContact = null;
       
+      // Try to match with loaded contacts
       for (const contact of allContacts) {
         const contactName = contact.name.toLowerCase();
-        if (name.includes(contactName) || contactName.includes(name)) {
+        const contactWords = contactName.split(/\s+/);
+        
+        // Check if any significant word from contact name is in the extracted name
+        let wordMatched = false;
+        for (const word of contactWords) {
+          if (word.length >= 3 && name.includes(word)) {
+            wordMatched = true;
+            break;
+          }
+        }
+        
+        // Or check if the extracted name contains/matches the contact name
+        if (wordMatched || name.includes(contactName) || contactName.includes(name)) {
           matchedContact = contact;
+          console.log(`💳 MATCHED CONTACT: ${contact.name}`);
+          
           if (contact.upiId) {
             upiId = contact.upiId;
-            console.log(`💳 Found UPI ID for ${contact.name}: ${upiId}`);
+            console.log(`💳 Found UPI ID: ${upiId}`);
+          } else {
+            console.log(`⚠️ No UPI ID found for ${contact.name}`);
           }
           break;
         }
@@ -145,7 +159,11 @@ export async function POST(request: Request) {
         ? matchedContact.name.charAt(0).toUpperCase() + matchedContact.name.slice(1)
         : name.charAt(0).toUpperCase() + name.slice(1);
       
-      const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+      // UPI Link strategy:
+      // If we have a UPI ID from contact, use it
+      // Otherwise, use just the name - the UPI app will ask user to select recipient
+      const finalUpiId = upiId || recipientName.toLowerCase().replace(/\s+/g, '');
+      const upiLink = `upi://pay?pa=${finalUpiId}@upi&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
       
       return NextResponse.json({
         intent: 'pay',
@@ -153,10 +171,12 @@ export async function POST(request: Request) {
           amount,
           recipient: recipientName,
           upiLink,
-          upiId // Include UPI ID in response for verification
+          upiId: upiId || undefined // Include UPI ID in response for verification
         },
-        warning: matchedContact && !matchedContact.upiId 
-          ? `${recipientName} ka UPI ID nahi mila. Demo UPI ID use ho raha hai.`
+        warning: matchedContact && !upiId
+          ? `${recipientName} ka UPI ID nahi mila. Kripya UPI app mein confirm karein.`
+          : !matchedContact
+          ? `Contact list mein nahi mila. Kripya UPI app mein receiver select karein.`
           : undefined,
         originalText: text
       });
