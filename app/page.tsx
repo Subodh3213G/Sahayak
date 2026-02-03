@@ -19,9 +19,15 @@ interface Result {
     amount?: string;
     recipient?: string;
     number?: string;
-    upiLink?: string;
-    androidDialerLink?: string; // Android intent link for better contact calling
-    upiId?: string; // UPI ID for verification
+    // UPI app deep links
+    phonepeLink?: string;
+    gpayLink?: string;
+    paytmLink?: string;
+    upiLink?: string; // Generic UPI fallback
+    upiId?: string;
+    // Contact/phone deep links
+    deepLink?: string; // Android intent for contacts search
+    telLink?: string; // Direct tel fallback
   };
   warning?: string;
   originalText: string;
@@ -245,11 +251,40 @@ export default function Home() {
   const handleConfirm = () => {
     if (!result) return;
 
-    if (result.intent === 'pay' && result.details.upiLink) {
-      window.location.href = result.details.upiLink;
-    } else if (result.intent === 'call' && result.details.number) {
-      // Direct tel: link - works universally
-      window.location.href = `tel:${result.details.number}`;
+    if (result.intent === 'pay') {
+      // Try UPI app deep links in order: PhonePe > GPay > Paytm > Generic UPI
+      // The first installed app will open
+      const links = [
+        result.details.phonepeLink,
+        result.details.gpayLink,
+        result.details.paytmLink,
+        result.details.upiLink
+      ].filter(Boolean); // Remove undefined values
+      
+      if (links.length > 0) {
+        console.log("🔗 Trying UPI deep links:", links);
+        // Try the first available link
+        window.location.href = links[0]!;
+      }
+    } else if (result.intent === 'call') {
+      // Try contacts search deep link first, then fallback to tel:
+      if (result.details.deepLink) {
+        console.log("📞 Trying contacts search intent:", result.details.deepLink);
+        window.location.href = result.details.deepLink;
+        
+        // Set a timeout to try tel: link if intent doesn't work
+        setTimeout(() => {
+          if (result.details.telLink) {
+            console.log("📞 Fallback to tel link:", result.details.telLink);
+            window.location.href = result.details.telLink;
+          }
+        }, 1000);
+      } else if (result.details.telLink || result.details.number) {
+        // Direct tel: link fallback
+        const telLink = result.details.telLink || `tel:${result.details.number}`;
+        console.log("📞 Using direct tel link:", telLink);
+        window.location.href = telLink;
+      }
     }
     
     setStatus('completed');

@@ -88,20 +88,69 @@ export async function POST(request: Request) {
         ];
         const hasCallKeyword = callKeywords.some(kw => lower.includes(kw));
         
+        // Extract amount if present for potential payment
+        const amountMatch = lower.match(/(\d+)/);
+        const amount = amountMatch ? amountMatch[0] : null;
+        
         // Determine intent: CALL if no number OR has call keyword
         if (!hasNumber || hasCallKeyword) {
           console.log("   📞 Treating as CALL");
+          
+          // Create deep link that opens phone/contacts app and searches for the name
+          // This will open the Android phone app with a search for the contact name
+          const phoneSearchIntent = `intent:#Intent;action=android.intent.action.SEARCH;component=com.android.contacts/.activities.PeopleActivity;S.query=${encodeURIComponent(contact.name)};end`;
+          
+          // Alternative: Direct dial link as fallback
+          const telLink = `tel:${contact.tel}`;
           
           return NextResponse.json({
             intent: 'call',
             details: {
               recipient: contact.name.charAt(0).toUpperCase() + contact.name.slice(1),
-              number: contact.tel
+              number: contact.tel,
+              deepLink: phoneSearchIntent, // Primary: Opens contacts with search
+              telLink: telLink // Fallback: Direct dial
             },
             originalText: text
           });
         }
-        // Otherwise, continue to check if it's a payment (handled below)
+        
+        // If has number but no call keyword, it's likely a payment
+        if (amount && !hasCallKeyword) {
+          console.log(`   💰 Treating as PAYMENT - Amount: ${amount}`);
+          
+          const recipientName = contact.name.charAt(0).toUpperCase() + contact.name.slice(1);
+          
+          // Create deep links for different UPI apps
+          // PhonePe deep link with search
+          const phonepeLink = `phonepe://pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          
+          // GPay deep link with search
+          const gpayLink = `gpay://upi/pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          
+          // Paytm deep link
+          const paytmLink = `paytmmp://pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          
+          // Standard UPI link (fallback)
+          const upiLink = `upi://pay?pa=${contact.upiId || 'merchant@upi'}&pn=${encodeURIComponent(recipientName)}&am=${amount}&cu=INR`;
+          
+          return NextResponse.json({
+            intent: 'pay',
+            details: {
+              amount,
+              recipient: recipientName,
+              upiId: contact.upiId,
+              phonepeLink,
+              gpayLink,
+              paytmLink,
+              upiLink // Generic fallback
+            },
+            warning: !contact.upiId 
+              ? `${recipientName} ka UPI ID nahi mila. App khulega, aap select kar sakte hain.`
+              : undefined,
+            originalText: text
+          });
+        }
       }
     }
 
